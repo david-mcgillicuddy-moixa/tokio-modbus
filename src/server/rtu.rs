@@ -3,38 +3,35 @@ use crate::{
     frame::*,
     server::service::{NewService, Service},
 };
-use std::{
-    io::{Error},
-    path::Path
-};
-use tokio_util::codec::Framed;
 use futures::{select, Future, FutureExt};
-use futures_util::{StreamExt, SinkExt};
+use futures_util::{SinkExt, StreamExt};
+use std::{io::Error, path::Path};
 use tokio_serial::{Serial, SerialPortSettings};
+use tokio_util::codec::Framed;
 
 pub struct Server {
-    serial: Serial
+    serial: Serial,
 }
 impl Server {
-    pub fn new_from_path<P: AsRef<Path>>(p: P, settings: &SerialPortSettings) -> Result<Self, Error> {
+    pub fn new_from_path<P: AsRef<Path>>(
+        p: P,
+        settings: &SerialPortSettings,
+    ) -> Result<Self, Error> {
         let serial = Serial::from_path(p, settings)?;
-        Ok(Server {
-            serial
-        })
+        Ok(Server { serial })
     }
     pub fn new(serial: Serial) -> Self {
-        Server {
-            serial
-        }
+        Server { serial }
     }
 
     pub async fn serve_forever<S>(self, new_service: S)
-        where
-            S: NewService<Request = Request, Response = Response> + Send + Sync + 'static,
-            S::Error: Into<Error>,
-            S::Instance: 'static + Send + Sync,
+    where
+        S: NewService<Request = Request, Response = Response> + Send + Sync + 'static,
+        S::Error: Into<Error>,
+        S::Instance: 'static + Send + Sync,
     {
-        self.serve_until(new_service, futures::future::pending()).await;
+        self.serve_until(new_service, futures::future::pending())
+            .await;
     }
 
     pub async fn serve_until<S, Sd>(self, new_service: S, shutdown_signal: Sd)
@@ -54,14 +51,15 @@ impl Server {
         let mut shutdown = shutdown_signal.fuse();
 
         async {
-            select!{
+            select! {
                 res = server => match res {
                     Err(e) => println!("error: {}", e),
                     _ => {}
                 },
                 _ = shutdown => { println!("Shutdown signal received")  }
             }
-        }.await;
+        }
+        .await;
     }
 }
 
@@ -69,9 +67,9 @@ async fn process<S>(
     mut framed: Framed<Serial, codec::rtu::ServerCodec>,
     service: S,
 ) -> Result<(), Error>
-    where
-        S: Service<Request = Request, Response = Response> + Send + Sync + 'static,
-        S::Error: Into<Error>,
+where
+    S: Service<Request = Request, Response = Response> + Send + Sync + 'static,
+    S::Error: Into<Error>,
 {
     loop {
         let request = match framed.next().await {
@@ -82,12 +80,12 @@ async fn process<S>(
 
         let hdr = request.hdr;
         let response = service.call(request.pdu.0).await.map_err(Into::into)?;
-        framed.send(
-            rtu::ResponseAdu {
+        framed
+            .send(rtu::ResponseAdu {
                 hdr,
                 pdu: response.into(),
-            }
-        ).await?;
+            })
+            .await?;
     }
     Ok(())
 }
