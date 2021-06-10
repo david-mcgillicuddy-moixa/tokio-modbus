@@ -69,21 +69,42 @@ impl Server {
             shutdown_signal,
         );
     }
+
+    /// Start a Modbus TCP server
+    pub async fn serve_until_async<S, Sd>(self, service: S, shutdown_signal: Sd)
+    where
+        S: NewService<Request = Request, Response = Response> + Send + Sync + 'static,
+        Sd: Future<Output = ()> + Sync + Send + Unpin + 'static,
+        S::Request: From<Request>,
+        S::Response: Into<Response>,
+        S::Error: Into<Error>,
+        S::Instance: Send + Sync + 'static,
+    {
+        let mut server = Server::new(self.socket_addr);
+        if let Some(threads) = self.threads {
+            server = server.threads(threads);
+        }
+        serve_until_async(
+            server.socket_addr,
+            server.threads.unwrap_or(1),
+            service,
+            shutdown_signal,
+        )
+        .await
+    }
 }
 
-/// Will start a TCP listener and will serve data with service provided
-/// until shutdown signal will be triggered in shutdown_signal future
-fn serve_until<S, Sd>(addr: SocketAddr, workers: usize, new_service: S, shutdown_signal: Sd)
-where
+async fn serve_until_async<S, Sd>(
+    addr: SocketAddr,
+    workers: usize,
+    new_service: S,
+    shutdown_signal: Sd,
+) where
     S: NewService<Request = Request, Response = Response> + Send + Sync + 'static,
     S::Error: Into<Error>,
     S::Instance: 'static + Send + Sync,
     Sd: Future<Output = ()> + Unpin + Send + Sync + 'static,
 {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .build()
-        .unwrap();
-
     let new_service = Arc::new(new_service);
 
     let server = async {
@@ -118,7 +139,22 @@ where
             _ = shutdown_signal => trace!("Shutdown signal received")
         }
     };
+    task.await;
+}
 
+/// Will start a TCP listener and will serve data with service provided
+/// until shutdown signal will be triggered in shutdown_signal future
+fn serve_until<S, Sd>(addr: SocketAddr, workers: usize, new_service: S, shutdown_signal: Sd)
+where
+    S: NewService<Request = Request, Response = Response> + Send + Sync + 'static,
+    S::Error: Into<Error>,
+    S::Instance: 'static + Send + Sync,
+    Sd: Future<Output = ()> + Unpin + Send + Sync + 'static,
+{
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .build()
+        .unwrap();
+    let task = serve_until_async(addr, workers, new_service, shutdown_signal);
     rt.block_on(task);
 }
 

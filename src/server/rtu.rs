@@ -56,7 +56,7 @@ impl Server {
                     Err(e) => println!("error: {}", e),
                     _ => {}
                 },
-                _ = shutdown => { println!("Shutdown signal received")  }
+                _ = shutdown => println!("Shutdown signal received")
             }
         }
         .await;
