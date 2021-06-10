@@ -48,6 +48,17 @@ impl Server {
         self.serve_until(service, future::pending());
     }
 
+    pub async fn serve_async<S>(self, service: S)
+    where
+        S: NewService<Request = Request, Response = Response> + Send + Sync + 'static,
+        S::Request: From<Request>,
+        S::Response: Into<Response>,
+        S::Error: Into<Error>,
+        S::Instance: Send + Sync + 'static,
+    {
+        self.serve_until_async(service, future::pending()).await;
+    }
+
     /// Start a Modbus TCP server that blocks the current thread.
     pub fn serve_until<S, Sd>(self, service: S, shutdown_signal: Sd)
     where
