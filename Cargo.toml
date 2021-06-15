@@ -22,7 +22,7 @@ smallvec = { version = "1", default-features = false }
 tokio = { version = "1", features = ["rt"] }
 tokio-util = { version = "0.6", features = ["codec"] }
 # Disable default-features to exclude unused dependency on libudev
-tokio-serial = { git = 'https://github.com/mnbbrown/tokio-serial', optional = true, default-features = false }
+tokio-serial = { git = 'https://github.com/rfael/tokio-serial', optional = true, default-features = false }
 
 [dev-dependencies]
 env_logger = "0.7"

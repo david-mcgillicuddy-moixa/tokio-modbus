@@ -126,14 +126,12 @@ async fn serve_until_async<S, Sd>(
             let framed = Framed::new(stream, codec::tcp::ServerCodec::default());
 
             let new_service = new_service.clone();
-            tokio::spawn(Box::pin(async move {
-                let service = new_service.new_service().unwrap();
-                let future = process(framed, service);
+            let service = new_service.new_service().unwrap();
+            let future = process(framed, service);
 
-                if let Err(err) = future.await {
-                    eprintln!("{:?}", err);
-                }
-            }));
+            if let Err(err) = future.await {
+                eprintln!("{:?}", err);
+            }
         }
 
         // the only way found to specify the "task" future error type
